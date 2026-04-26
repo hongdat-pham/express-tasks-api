@@ -2,10 +2,16 @@
 import express from "express";
 import tasksRouter from "./routes/tasks.js";
 import config from "./config.js";
+import logger from "./middlewares/logger.js";
+import auth from "./middlewares/auth.js";
+import errorHandler from "./middlewares/errorHandler.js";
+import rateLimiter from "./middlewares/rateLimiter.js";
 
 const app = express();
-
+app.use(logger);
 app.use(express.json()); // bắt buộc phải có — không có cái này thì req.body = undefined
+app.use(auth);
+app.use(rateLimiter);
 
 app.get("/", (req, res) => {
   res.json({
@@ -21,7 +27,12 @@ app.get("/", (req, res) => {
     ],
   });
 });
-
 app.use("/tasks", tasksRouter);
+app.get("/error-test", (req, res, next) => {
+  const err = new Error("Something went wrong!");
+  err.statusCode = 500;
+  next(err);
+});
+app.use(errorHandler);
 
 export default app;
