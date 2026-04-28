@@ -31,11 +31,27 @@ const patchTaskRules = [
 ];
 
 // GET /tasks?status=pending
+
 router.get("/", async (req, res) => {
   const tasks = await readData();
-  const { status } = req.query;
-  const result = status ? tasks.filter((t) => t.status === status) : tasks;
-  res.json(result);
+
+  // --- filter theo status (giữ nguyên logic cũ) ---
+  const { status, page: pageQuery, limit: limitQuery } = req.query;
+  const filtered = status ? tasks.filter((t) => t.status === status) : tasks;
+
+  // --- pagination ---
+  const page = parseInt(pageQuery) || 1;
+  const limit = parseInt(limitQuery) || 10;
+  const skip = (page - 1) * limit;
+  const data = filtered.slice(skip, skip + limit);
+
+  // explicit status(200) cho đồng nhất
+  res.status(200).json({
+    data,
+    total: filtered.length, // total sau khi filter, không phải tổng tất cả
+    page,
+    limit,
+  });
 });
 
 // POST /tasks
@@ -43,6 +59,7 @@ router.post("/", createTaskRules, validate, async (req, res) => {
   const tasks = await readData();
   const newTask = {
     id: Date.now(),
+    userId: req.body.userId,
     title: req.body.title,
     status: req.body.status || "pending",
     createdAt: new Date().toISOString(),
@@ -59,7 +76,7 @@ router.get("/:id", async (req, res) => {
   const tasks = await readData();
   const task = tasks.find((t) => t.id === id);
   if (!task) return res.status(404).json({ error: "Task not found" });
-  res.json(task);
+  res.status(200).json(task);
 });
 
 // PATCH /tasks/:id
@@ -77,7 +94,7 @@ router.patch(
     const newTasks = tasks.map((t) => (t.id === id ? updated : t));
     await writeData(newTasks);
     logger.emit("task:event", { type: "task:updated", data: updated });
-    res.json(updated);
+    res.status(200).json(updated);
   },
 );
 

@@ -1,6 +1,7 @@
 // src/app.js
 import express from "express";
 import tasksRouter from "./routes/tasks.js";
+import usersRouter from "./routes/users.js";
 import config from "./config.js";
 import logger from "./middlewares/logger.js";
 import auth from "./middlewares/auth.js";
@@ -28,6 +29,7 @@ app.get("/", (req, res) => {
   });
 });
 app.use("/tasks", tasksRouter);
+app.use("/users", usersRouter);
 app.get("/error-test", (req, res, next) => {
   const err = new Error("Something went wrong!");
   err.statusCode = 500;
