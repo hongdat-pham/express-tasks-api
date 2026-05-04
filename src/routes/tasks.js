@@ -1,9 +1,10 @@
-// src/routes/tasks.js
 import { Router } from "express";
 import { readData, writeData } from "../db.js";
 import { logger } from "../events/logger.js";
 import { body } from "express-validator";
 import { validate, requireAtLeastOneField } from "../middlewares/validate.js";
+import { catchAsync } from "../utils/catchAsync.js";
+import { AppError } from "../errors/AppError.js";
 
 const router = Router();
 
@@ -32,52 +33,57 @@ const patchTaskRules = [
 
 // GET /tasks?status=pending
 
-router.get("/", async (req, res) => {
-  const tasks = await readData();
-
-  // --- filter theo status (giữ nguyên logic cũ) ---
-  const { status, page: pageQuery, limit: limitQuery } = req.query;
-  const filtered = status ? tasks.filter((t) => t.status === status) : tasks;
-
-  // --- pagination ---
-  const page = parseInt(pageQuery) || 1;
-  const limit = parseInt(limitQuery) || 10;
-  const skip = (page - 1) * limit;
-  const data = filtered.slice(skip, skip + limit);
-
-  // explicit status(200) cho đồng nhất
-  res.status(200).json({
-    data,
-    total: filtered.length, // total sau khi filter, không phải tổng tất cả
-    page,
-    limit,
-  });
-});
+router.get(
+  "/",
+  catchAsync(async (req, res) => {
+    const tasks = await readData();
+    const { status, page: pageQuery, limit: limitQuery } = req.query;
+    const filtered = status ? tasks.filter((t) => t.status === status) : tasks;
+    const page = parseInt(pageQuery) || 1;
+    const limit = parseInt(limitQuery) || 10;
+    const skip = (page - 1) * limit;
+    const data = filtered.slice(skip, skip + limit);
+    res.status(200).json({
+      data,
+      total: filtered.length,
+      page,
+      limit,
+    });
+  }),
+);
 
 // POST /tasks
-router.post("/", createTaskRules, validate, async (req, res) => {
-  const tasks = await readData();
-  const newTask = {
-    id: Date.now(),
-    userId: req.body.userId,
-    title: req.body.title,
-    status: req.body.status || "pending",
-    createdAt: new Date().toISOString(),
-  };
-  tasks.push(newTask);
-  await writeData(tasks);
-  logger.emit("task:event", { type: "task:created", data: newTask });
-  res.status(201).json(newTask);
-});
+router.post(
+  "/",
+  createTaskRules,
+  validate,
+  catchAsync(async (req, res) => {
+    const tasks = await readData();
+    const newTask = {
+      id: Date.now(),
+      userId: req.body.userId,
+      title: req.body.title,
+      status: req.body.status || "pending",
+      createdAt: new Date().toISOString(),
+    };
+    tasks.push(newTask);
+    await writeData(tasks);
+    logger.emit("task:event", { type: "task:created", data: newTask });
+    res.status(201).json(newTask);
+  }),
+);
 
 // GET /tasks/:id
-router.get("/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  const tasks = await readData();
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return res.status(404).json({ error: "Task not found" });
-  res.status(200).json(task);
-});
+router.get(
+  "/:id",
+  catchAsync(async (req, res) => {
+    const id = Number(req.params.id);
+    const tasks = await readData();
+    const task = tasks.find((t) => t.id === id);
+    if (!task) throw new AppError("Task not found", 404);
+    res.status(200).json(task);
+  }),
+);
 
 // PATCH /tasks/:id
 router.patch(
@@ -85,29 +91,32 @@ router.patch(
   requireAtLeastOneField,
   patchTaskRules,
   validate,
-  async (req, res) => {
+  catchAsync(async (req, res) => {
     const id = Number(req.params.id);
     const tasks = await readData();
     const task = tasks.find((t) => t.id === id);
-    if (!task) return res.status(404).json({ error: "Task not found" });
+    if (!task) throw new AppError("Task not found",404)
     const updated = { ...task, ...req.body, id };
     const newTasks = tasks.map((t) => (t.id === id ? updated : t));
     await writeData(newTasks);
     logger.emit("task:event", { type: "task:updated", data: updated });
     res.status(200).json(updated);
-  },
+  }),
 );
 
 // DELETE /tasks/:id
-router.delete("/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  const tasks = await readData();
-  const task = tasks.find((t) => t.id === id);
-  if (!task) return res.status(404).json({ error: "Task not found" });
-  const newTasks = tasks.filter((t) => t.id !== id);
-  await writeData(newTasks);
-  logger.emit("task:event", { type: "task:deleted", data: { id } });
-  res.status(204).send();
-});
+router.delete(
+  "/:id",
+  catchAsync(async (req, res) => {
+    const id = Number(req.params.id);
+    const tasks = await readData();
+    const task = tasks.find((t) => t.id === id);
+    if (!task) throw new AppError("Task not found",404)
+    const newTasks = tasks.filter((t) => t.id !== id);
+    await writeData(newTasks);
+    logger.emit("task:event", { type: "task:deleted", data: { id } });
+    res.status(204).send();
+  }),
+);
 
 export default router;

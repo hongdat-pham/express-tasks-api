@@ -1,8 +1,13 @@
-const errorHandler = (err, req, res, next) => {
-  console.log(`[ERROR]: ${err.message}`);
-  res
-    .status(err.statusCode || 500)
-    .json({ err: err.message || "Internal Server Error" });
-};
+export const errorHandler = (err, req, res, next) => {
+  const statusCode = err.statusCode || 500;
 
-export default errorHandler;
+  const message = err.isOperational ? err.message : "Something went wrong";
+
+  console.error(`[ERROR] ${statusCode} — ${err.message}`);
+
+  res.status(statusCode).json({
+    error: message,
+    statusCode,
+    timestamp: new Date().toISOString(),
+  });
+};

@@ -14,7 +14,6 @@ export const validate = (req, res, next) => {
   });
 };
 
-// Middleware riêng, đặt TRƯỚC patchTaskRules
 export const requireAtLeastOneField = (req, res, next) => {
   console.log("body:", req.body);
   const { title, status } = req.body;

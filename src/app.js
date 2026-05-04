@@ -1,16 +1,16 @@
-// src/app.js
 import express from "express";
 import tasksRouter from "./routes/tasks.js";
 import usersRouter from "./routes/users.js";
 import config from "./config.js";
 import logger from "./middlewares/logger.js";
 import auth from "./middlewares/auth.js";
-import errorHandler from "./middlewares/errorHandler.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
 import rateLimiter from "./middlewares/rateLimiter.js";
+import { AppError } from "./errors/AppError.js";
 
 const app = express();
 app.use(logger);
-app.use(express.json()); // bắt buộc phải có — không có cái này thì req.body = undefined
+app.use(express.json());
 app.use(auth);
 app.use(rateLimiter);
 
@@ -34,6 +34,9 @@ app.get("/error-test", (req, res, next) => {
   const err = new Error("Something went wrong!");
   err.statusCode = 500;
   next(err);
+});
+app.use((req, res, next) => {
+  next(new AppError(`Route not found: ${req.url}`, 404));
 });
 app.use(errorHandler);
 
