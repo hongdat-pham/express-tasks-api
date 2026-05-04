@@ -1,5 +1,5 @@
 import express from "express";
-import tasksRouter from "./routes/tasks.js";
+import tasksRouter from "./tasks/tasks.routes.js";
 import usersRouter from "./routes/users.js";
 import config from "./config.js";
 import logger from "./middlewares/logger.js";
